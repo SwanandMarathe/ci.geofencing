@@ -13,7 +13,7 @@
 
 CLLocationManager *_locationManager;
 NSArray *_regionArray;
-NSArray *geofences;
+NSMutableArray *geofences;
 KrollCallback * _callback;
 
 #pragma mark Internal
@@ -21,72 +21,72 @@ KrollCallback * _callback;
 // this is generated for your module, please do not change it
 -(id)moduleGUID
 {
-	return @"18329a2a-9b67-4e1c-9988-155258dc6f1d";
+    return @"18329a2a-9b67-4e1c-9988-155258dc6f1d";
 }
 
 // this is generated for your module, please do not change it
 -(NSString*)moduleId
 {
-	return @"ci.geofencing";
+    return @"ci.geofencing";
 }
 
 #pragma mark Lifecycle
 
 -(void)startup
 {
-	// this method is called when the module is first loaded
-	// you *must* call the superclass
-	[super startup];
-	
-	NSLog(@"[INFO] %@ loaded",self);
+    // this method is called when the module is first loaded
+    // you *must* call the superclass
+    [super startup];
+    
+    NSLog(@"[INFO] %@ loaded",self);
 }
 
 -(void)shutdown:(id)sender
 {
-	// this method is called when the module is being unloaded
-	// typically this is during shutdown. make sure you don't do too
-	// much processing here or the app will be quit forceably
-	
-	// you *must* call the superclass
-	[super shutdown:sender];
+    // this method is called when the module is being unloaded
+    // typically this is during shutdown. make sure you don't do too
+    // much processing here or the app will be quit forceably
+    
+    // you *must* call the superclass
+    [super shutdown:sender];
 }
 
-#pragma mark Cleanup 
+#pragma mark Cleanup
 
 -(void)dealloc
 {
-	// release any resources that have been retained by the module
-	[super dealloc];
+    // release any resources that have been retained by the module
+    [super dealloc];
 }
 
 #pragma mark Internal Memory Management
 
 -(void)didReceiveMemoryWarning:(NSNotification*)notification
 {
-	// optionally release any resources that can be dynamically
-	// reloaded once memory is available - such as caches
-	[super didReceiveMemoryWarning:notification];
+    // optionally release any resources that can be dynamically
+    // reloaded once memory is available - such as caches
+    [super didReceiveMemoryWarning:notification];
 }
 
 #pragma mark Listener Notifications
 
 -(void)_listenerAdded:(NSString *)type count:(int)count
 {
-	if (count == 1 && [type isEqualToString:@"my_event"])
-	{
-		// the first (of potentially many) listener is being added 
-		// for event named 'my_event'
-	}
+    if (count == 1 && [type isEqualToString:@"my_event"])
+    {
+        // the first (of potentially many) listener is being added
+        // for event named 'my_event'
+    }
 }
 
 -(void)_listenerRemoved:(NSString *)type count:(int)count
 {
-	if (count == 0 && [type isEqualToString:@"my_event"])
-	{
-		// the last listener called for event named 'my_event' has
-		// been removed, we can optionally clean up any resources
-		// since no body is listening at this point for that event
-	}
+    if (count == 0 && [type isEqualToString:@"my_event"])
+    {
+        // the last listener called for event named 'my_event' has
+        // been removed, we can optionally clean up any resources
+        // since no body is listening at this point for that event
+    }
 }
 #pragma geofencing stuff
 - (void)initializeLocationManager {
@@ -96,12 +96,17 @@ KrollCallback * _callback;
         return;
     }
     
-    _locationManager = [[CLLocationManager alloc] init];
-    _locationManager.delegate = self;
+    if (!_locationManager) {
+        _locationManager = [[CLLocationManager alloc] init];
+        _locationManager.delegate = self;
+        
+        _locationManager.distanceFilter = kCLLocationAccuracyNearestTenMeters;
+        _locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+    }
 }
 
 
-- (void) initializeRegionMonitoring:(NSArray*)geofences {
+- (void) initializeRegionMonitoring:(NSMutableArray*)geofences {
     
     if (_locationManager == nil) {
         [NSException raise:@"Location Manager Not Initialized" format:@"You must initialize location manager first."];
@@ -112,10 +117,38 @@ KrollCallback * _callback;
         return;
     }
     
-    for(CLRegion *geofence in geofences) {
+    if ([[UIApplication sharedApplication] backgroundRefreshStatus] == UIBackgroundRefreshStatusAvailable) {
+        NSLog(@"[INFO] %@",@"Background updates are available for the app.");
+    }
+    else if([[UIApplication sharedApplication] backgroundRefreshStatus] == UIBackgroundRefreshStatusDenied)
+    {
+        NSLog(@"The user explicitly disabled background behavior for this app or for the whole system.");
+    }
+    else if([[UIApplication sharedApplication] backgroundRefreshStatus] == UIBackgroundRefreshStatusRestricted)
+    {
+        NSLog(@"Background updates are unavailable and the user cannot enable them again. For example, this status can occur when parental controls are in effect for the current user.");
+    }
+    
+    
+    for(CLCircularRegion *geofence in geofences) {
         [_locationManager startMonitoringForRegion:geofence];
     }
     
+}
+
+
+- (void) checkStateForRegions:(NSMutableArray*)geofences {
+    for(CLCircularRegion *geofence in geofences) {
+        [_locationManager requestStateForRegion:geofence];
+    }
+}
+
+- (void)locationManager:(CLLocationManager *)manager didDetermineState:(CLRegionState)state forRegion:(CLCircularRegion *)region {
+    if (state == CLRegionStateInside) {
+        NSMutableDictionary *event = [NSMutableDictionary dictionary];
+        [event setObject:region.identifier forKey:@"identifier"];
+        /* [self _fireEventToListener:@"entered_region" withObject:event listener:_callback thisObject:nil]; */
+    }
 }
 
 - (NSArray*) buildGeofenceData:(NSArray *)regionArray {
@@ -124,15 +157,15 @@ KrollCallback * _callback;
     
     NSMutableArray *geofences = [[NSMutableArray alloc] init];
     for(NSDictionary *regionDict in regionArray) {
-        CLRegion *region = [self mapDictionaryToRegion:regionDict];
+        CLCircularRegion *region = [self mapDictionaryToRegion:regionDict];
         [geofences addObject:region];
     }
     
-    return [NSArray arrayWithArray:geofences];
+    return geofences;
 }
 
 
-- (CLRegion*)mapDictionaryToRegion:(NSDictionary*)dictionary {
+- (CLCircularRegion*)mapDictionaryToRegion:(NSDictionary*)dictionary {
     NSString *title = [dictionary valueForKey:@"title"];
     
     CLLocationDegrees latitude = [[dictionary valueForKey:@"latitude"] doubleValue];
@@ -141,16 +174,16 @@ KrollCallback * _callback;
     
     CLLocationDistance regionRadius = [[dictionary valueForKey:@"radius"] doubleValue];
     
-    return [[CLRegion alloc] initCircularRegionWithCenter:centerCoordinate
-                                                   radius:regionRadius
-                                               identifier:title];
+    return [[CLCircularRegion alloc] initWithCenter:centerCoordinate
+                                             radius:regionRadius
+                                         identifier:title];
 }
 
 
 #pragma mark - Location Manager - Region Task Methods
 
-- (void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region {
-    NSLog(@"Entered Region - %@", region.identifier);
+- (void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLCircularRegion *)region {
+    /* NSLog(@"Entered Region - %@", region.identifier); */
     
     
     NSMutableDictionary *event = [NSMutableDictionary dictionary];
@@ -159,8 +192,8 @@ KrollCallback * _callback;
     
 }
 
-- (void)locationManager:(CLLocationManager *)manager didExitRegion:(CLRegion *)region {
-    NSLog(@"Exited Region - %@", region.identifier);
+- (void)locationManager:(CLLocationManager *)manager didExitRegion:(CLCircularRegion *)region {
+    /* NSLog(@"Exited Region - %@", region.identifier); */
     
     
     NSMutableDictionary *event = [NSMutableDictionary dictionary];
@@ -168,8 +201,8 @@ KrollCallback * _callback;
     [self _fireEventToListener:@"exited_region" withObject:event listener:_callback thisObject:nil];
 }
 
-- (void)locationManager:(CLLocationManager *)manager didStartMonitoringForRegion:(CLRegion *)region {
-    NSLog(@"Started monitoring %@ region", region.identifier);
+- (void)locationManager:(CLLocationManager *)manager didStartMonitoringForRegion:(CLCircularRegion *)region {
+    /* NSLog(@"Started monitoring %@ region", region.identifier); */
     
     NSMutableDictionary *event = [NSMutableDictionary dictionary];
     [event setObject:region.identifier forKey:@"identifier"];
@@ -179,7 +212,7 @@ KrollCallback * _callback;
 #pragma mark - Location Manager - Standard Task Methods
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation {
-    NSLog(@"[INFO] %@",[NSString stringWithFormat:@"%f,%f",newLocation.coordinate.latitude, newLocation.coordinate.longitude]);
+    /* NSLog(@"[INFO] %@",[NSString stringWithFormat:@"%f,%f",newLocation.coordinate.latitude, newLocation.coordinate.longitude]); */
 }
 
 
@@ -204,6 +237,7 @@ KrollCallback * _callback;
     // create array from data passed in
     geofences = [self buildGeofenceData:_regions];
     [self initializeRegionMonitoring:geofences];
+    /* [self checkStateForRegions:geofences]; */
     
     // remember to clean up later
     [geofences retain];
@@ -213,11 +247,12 @@ KrollCallback * _callback;
 
 -(void)stopGeoFencing:(id)args
 {
-    for(CLRegion *geofence in geofences) {
+    /* for(CLCircularRegion *geofence in geofences) { */
+    for(CLCircularRegion *geofence in [_locationManager monitoredRegions]) {
+        NSLog(@"Number of geofences here: %i", [[_locationManager monitoredRegions] count]);
         [_locationManager stopMonitoringForRegion:geofence];
     }
-    
-    //[_locationManager stopMonitoringSignificantLocationChanges];
+    [geofences removeAllObjects];
 }
 
 
