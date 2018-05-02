@@ -1,4 +1,4 @@
-# Ci.Geofence
+# Ci.Geofencing
 
 ## Overview
 
@@ -8,7 +8,7 @@ It can monitor all iOS geofence transitions.
 
 ### Download
 
-Download the Ci.Geofence module through the [here](https://github.com/deckameron/Ti.Android.Geofence/blob/master/android/dist/ti.android.geofence-1.0.zip).
+Download the Ci.Geofence module through the [here](https://github.com/deckameron/ci.geofencing/blob/master/ci.geofencing-2.0.zip?raw=true).
 
 ## How to use it
 ```javascript
