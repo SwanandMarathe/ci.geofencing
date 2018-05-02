@@ -1,3 +1,16 @@
+#Ci.Geofence
+
+## Overview
+
+This module adds support for using Geofence in iOS Titanium Apps.
+It can monitor all iOS geofence transitions.
+**This module works when the app is in foreground, background, closed, after phone restart and if location providers get changed.**
+
+### Download
+
+Download the Ci.Geofence module through the [here](https://github.com/deckameron/Ti.Android.Geofence/blob/master/android/dist/ti.android.geofence-1.0.zip).
+
+## How to use it
 ```javascript
 // this sets the background color of the master UIView (when there are no windows/tab groups on it)
 Titanium.UI.setBackgroundColor('#000');
