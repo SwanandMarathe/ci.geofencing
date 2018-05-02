@@ -83,6 +83,4 @@ ci_geofencing.startGeoFencing(regions, function(event) {
 		ci_geofencing.stopGeoFencing();
 	}
 });
-
-// http://www.netmagazine.com/tutorials/get-started-geofencing-ios
 ```
