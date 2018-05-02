@@ -95,5 +95,8 @@ ci_geofencing.startGeoFencing(regions, function(event) {
 	if ( event.type === "exited_region") {
 		ci_geofencing.stopGeoFencing();
 	}
+	if ( event.type === "entered_region") {
+		alert("Yeah!");
+	}
 });
 ```
